@@ -5,33 +5,25 @@ namespace Compis_T3_1040121
     internal class Program
     {
         private static FileAnalyzer fileAnalyzer;
-        private static string textoCompleto = ""; 
+        private static string textoCompleto = "";
         private static List<string> terminals = new List<string>();
+        private static Dictionary<string, List<string>> rawProductions = new Dictionary<string, List<string>>();
+        private static List<Lexema> tokens = new List<Lexema>();
+
 
         static void Main(string[] args)
         {
             string input = "";
             Console.WriteLine("Compiladores: Tarea #3 -Carlos Daniel Barrientos Castillo {1040121}");
-            
             try
             {
                 //Console.WriteLine("Introduce la cadena a evaluar");
                 //input = Console.ReadLine();
-                
-                LeerArchivo("../../../GFC.txt");
-                fileAnalyzer = new FileAnalyzer(textoCompleto);
-                fileAnalyzer.ValidarTexto(); // Analiza y valida el contenido del archivo
+                useFileAnalyze();
+                useLexicalAnalyzer();
+                useLR1();
 
-                terminals = fileAnalyzer.getTerminals();
-                fileAnalyzer.getNonTerminals();
-                var rawProductions = fileAnalyzer.getProductions();
-                var tokens = LexicalAnalyzer.GetLexicalTokens(" VAR x : INTEGER ;");
 
-                Console.WriteLine("Tokens encontrados:");
-                foreach (var token in tokens)
-                {
-                    Console.WriteLine(token);
-                }
             }
             catch (Exception ex)
             {
@@ -40,6 +32,55 @@ namespace Compis_T3_1040121
 
             Console.ReadKey();
         }
+        static void useFileAnalyze()
+        {
+            LeerArchivo("../../../GFC.txt");
+            fileAnalyzer = new FileAnalyzer(textoCompleto);
+            fileAnalyzer.ValidarTexto(); // Analiza y valida el contenido del archivo
+            terminals = fileAnalyzer.getTerminals();
+            fileAnalyzer.getNonTerminals();
+            rawProductions = fileAnalyzer.getProductions();
+        }
+        static void useLexicalAnalyzer()
+        {
+            tokens = LexicalAnalyzer.GetLexicalTokens(" VAR x : INTEGER ; VAR identificador : REAL ;");
+            if (tokens.Count() == 0)
+            {
+                Console.WriteLine("La entrada no tiene el formato correcto");
+            }
+            else
+            {
+                Console.WriteLine("Tokens encontrados:");
+                foreach (var token in tokens)
+                {
+                    Console.WriteLine(token);
+                }
+            }
+        }
+        static void useLR1()
+        {
+
+            Dictionary<string, List<string>> _productions = new Dictionary<string, List<string>>
+            {
+                {"<var_declaration>", new List<string> {"VAR identifier ':' <type> ';' <var_declaration>", "ε"} },
+                { "<type>", new List<string> { "INTEGER", "REAL", "BOOLEAN", "STRING" } }
+            };
+
+
+            LR1 parser = new LR1(_productions);
+            parser.CrearTransiciones();
+            // Mostrar los estados generados
+            for (int i = 0; i < parser.estados.Count; i++)
+            {
+                Console.WriteLine($"Estado {i}:");
+                foreach (var item in parser.estados[i])
+                {
+                    Console.WriteLine(item.ToString());
+                }
+            }
+
+        }
+
         static void LeerArchivo(string rutaArchivo)
         {
             try

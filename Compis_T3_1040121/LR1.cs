@@ -67,6 +67,7 @@ namespace Compis_T3_1040121
         public List<HashSet<ItemLR1>> estados;
         public Dictionary<int, Dictionary<string, Transicion>> tablaAccion;
         public Dictionary<int, Dictionary<string, int>> tablaGoto;
+        public Dictionary<int, Dictionary<string, int>> tablaTransiciones;
 
         public LR1(Dictionary<string, List<string>> _producciones)
         {
@@ -74,50 +75,145 @@ namespace Compis_T3_1040121
             estados = new List<HashSet<ItemLR1>>();
             tablaAccion = new Dictionary<int, Dictionary<string, Transicion>>();
             tablaGoto = new Dictionary<int, Dictionary<string, int>>();
+            tablaTransiciones = new Dictionary<int, Dictionary<string, int>>(); // Inicializar tablaTransiciones
         }
 
         public void CrearTransiciones()
         {
             HashSet<ItemLR1> estadoInicial = new HashSet<ItemLR1>
-            {
-                new ItemLR1("<S>", new string[] { "<var_declaration>", "$" }, 0, "$")
-            };
+    {
+        new ItemLR1("<S>", new string[] { "<var_declaration>", "$" }, 0, "$")
+    };
 
             HashSet<ItemLR1> cierreInicial = Closure(estadoInicial);
-
             estados.Add(cierreInicial);
+
+            Console.WriteLine("Estados generados:");
 
             for (int i = 0; i < estados.Count; i++)
             {
                 HashSet<ItemLR1> estado = estados[i];
 
-                foreach (var simbolo in ObtenerSimbolos(estado))
+                Console.WriteLine($"\nEstado {i}:");
+                foreach (var item in estado)
                 {
-                    HashSet<ItemLR1> nuevoEstado = Goto(estado, simbolo);
+                    Console.WriteLine(item.ToString());
 
-                    if (nuevoEstado.Count > 0 && !EstadoYaExiste(nuevoEstado))
+                    // Solo generamos SHIFT si el item no está reducido
+                    if (!item.EsItemDeReduccion())
                     {
-                        estados.Add(nuevoEstado);
-                    }
+                        foreach (var simbolo in ObtenerSimbolos(estado))
+                        {
+                            HashSet<ItemLR1> nuevoEstado = Goto(estado, simbolo);
 
-                    AgregarTransicion(i, simbolo, nuevoEstado);
+                            if (nuevoEstado.Count > 0)
+                            {
+                                int indiceExistente = ObtenerIndiceEstadoExistente(nuevoEstado);
+
+                                if (indiceExistente == -1)
+                                {
+                                    estados.Add(nuevoEstado);
+                                    AgregarTransicion(i, simbolo, estados.Count - 1);
+                                }
+                                else if (!tablaTransiciones[i].ContainsKey(simbolo)) // Verificar aquí si la transición ya existe
+                                {
+                                    AgregarTransicion(i, simbolo, indiceExistente);
+                                }
+
+                                // Imprimir SHIFT o GOTO dependiendo del símbolo
+                                if (esTerminal(simbolo)) // Si es terminal, es una acción SHIFT
+                                {
+                                    AgregarAccion(i, simbolo, $"SHIFT a Estado {(indiceExistente == -1 ? estados.Count - 1 : indiceExistente)}");
+
+                                }
+                                else // Si es no terminal, es una acción GOTO
+                                {
+                                    if (!tablaGoto.ContainsKey(i))
+                                    {
+                                        tablaGoto[i] = new Dictionary<string, int>();
+                                    }
+                                    tablaGoto[i][simbolo] = indiceExistente == -1 ? estados.Count - 1 : indiceExistente;
+                                }
+                            }
+                        }
+                    }
                 }
 
+                // Verificar si todos los elementos del estado están en reducción
                 foreach (var item in estado)
                 {
                     if (item.EsItemDeReduccion())
                     {
+                        // Aceptar si la producción es <S> -> <var_declaration> $
                         if (item.LadoIzquierdo == "<S>" && item.Lookahead == "$")
                         {
-                            tablaAccion[i] = new Dictionary<string, Transicion> { { "$", new Transicion { Simbolo = "ACCEPT" } } };
+                            if (!tablaAccion.ContainsKey(i))
+                            {
+                                tablaAccion[i] = new Dictionary<string, Transicion>();
+                            }
+                            tablaAccion[i]["$"] = new Transicion { Simbolo = "ACCEPT" };
+                            Console.WriteLine($"Estado {i} -> Acción: ACCEPT");
                         }
                         else
                         {
-                            tablaAccion[i] = new Dictionary<string, Transicion> { { item.Lookahead, new Transicion { Simbolo = "REDUCE" } } };
+                            // Realizamos la reducción si no es el símbolo inicial
+                            if (!tablaAccion.ContainsKey(i))
+                            {
+                                tablaAccion[i] = new Dictionary<string, Transicion>();
+                            }
+
+                            tablaAccion[i][item.Lookahead] = new Transicion
+                            {
+                                Simbolo = $"REDUCE {item.LadoIzquierdo} → {string.Join(" ", item.LadoDerecho)}",
+                                Produccion = $"{item.LadoIzquierdo} → {string.Join(" ", item.LadoDerecho)}",
+                                EstadoInicial = i,
+                                EstadoTransicionado = -1
+                            };
+                            Console.WriteLine($"Estado {i} -> Acción: REDUCE {item.LadoIzquierdo} -> {string.Join(" ", item.LadoDerecho)}");
                         }
                     }
                 }
             }
+
+            // Mostrar la tabla de acciones al final
+            Console.WriteLine("\nTabla de Acciones:");
+            foreach (var estado in tablaAccion)
+            {
+                Console.WriteLine($"Estado {estado.Key}:");
+                foreach (var transicion in estado.Value)
+                {
+                    Console.WriteLine($"  Símbolo: {transicion.Key}, Acción: {transicion.Value.Simbolo}");
+                }
+            }
+
+            // Mostrar la tabla GOTO al final
+            Console.WriteLine("\nTabla GOTO:");
+            foreach (var estado in tablaGoto)
+            {
+                Console.WriteLine($"Estado {estado.Key}:");
+                foreach (var transicion in estado.Value)
+                {
+                    Console.WriteLine($"  No terminal: {transicion.Key}, GOTO a Estado: {transicion.Value}");
+                }
+            }
+        }
+
+
+
+
+
+
+
+        private int ObtenerIndiceEstadoExistente(HashSet<ItemLR1> estado)
+        {
+            for (int i = 0; i < estados.Count; i++)
+            {
+                if (estados[i].SetEquals(estado))
+                {
+                    return i;
+                }
+            }
+            return -1;
         }
 
         private string[] DividirProduccion(string produccion)
@@ -179,48 +275,74 @@ namespace Compis_T3_1040121
 
         private HashSet<ItemLR1> Closure(HashSet<ItemLR1> items)
         {
-            HashSet<ItemLR1> cerrado = new HashSet<ItemLR1>(items);
-
+            HashSet<ItemLR1> cerrado = new HashSet<ItemLR1>(items); // Sin duplicados
             bool cambios = true;
+
             while (cambios)
             {
                 cambios = false;
-
                 HashSet<ItemLR1> nuevosItems = new HashSet<ItemLR1>();
 
                 foreach (var item in cerrado)
                 {
+                    // Verificamos si el punto no está al final de la producción
                     if (item.Punto < item.LadoDerecho.Length)
                     {
+                        // Obtenemos el símbolo después del punto
                         string simbolo = item.LadoDerecho[item.Punto];
 
+                        // Verificamos si el símbolo tiene producciones asociadas
                         if (producciones.ContainsKey(simbolo))
                         {
                             foreach (var produccion in producciones[simbolo])
                             {
-                                string[] ladoDerecho = DividirProduccion(produccion);
+                                // Dividimos la producción en un arreglo de strings
+                                string[] produccionDividida = DividirProduccion(produccion);
 
-                                Console.WriteLine($"Creando ItemLR1: {simbolo} -> {string.Join(" ", ladoDerecho)}");
+                                // Creamos un nuevo item con la producción y el lookahead del item actual
+                                ItemLR1 nuevoItem = new ItemLR1(simbolo, produccionDividida, 0, item.Lookahead);
 
-                                ItemLR1 nuevoItem = new ItemLR1(simbolo, ladoDerecho, 0, item.Lookahead);
-                                if (!cerrado.Contains(nuevoItem))
+                                // Evitamos duplicados en el closure
+                                if (!cerrado.Contains(nuevoItem) && !nuevosItems.Contains(nuevoItem))
                                 {
                                     nuevosItems.Add(nuevoItem);
                                     cambios = true;
+                                    //Console.WriteLine($"Agregando nuevo item a closure: {nuevoItem}");
                                 }
                             }
                         }
                     }
                 }
 
-                foreach (var nuevoItem in nuevosItems)
-                {
-                    cerrado.Add(nuevoItem);
-                }
+                // Añadir los nuevos ítems encontrados al conjunto cerrado
+                cerrado.UnionWith(nuevosItems);
             }
 
             return cerrado;
         }
+
+
+
+
+        // Verificar si la acción ya existe antes de agregarla
+        private void AgregarAccion(int estado, string simbolo, string accion)
+        {
+            if (!tablaAccion.ContainsKey(estado))
+            {
+                tablaAccion[estado] = new Dictionary<string, Transicion>();
+            }
+
+            // Evitar duplicados
+            if (!tablaAccion[estado].ContainsKey(simbolo))
+            {
+                tablaAccion[estado][simbolo] = new Transicion { Simbolo = accion };
+                Console.WriteLine($"Acción generada: Estado {estado}, Símbolo {simbolo}, Acción: {accion}");
+            }
+        }
+
+
+
+
 
         private HashSet<ItemLR1> Goto(HashSet<ItemLR1> estado, string simbolo)
         {
@@ -235,27 +357,43 @@ namespace Compis_T3_1040121
                 }
             }
 
-            return Closure(nuevoEstado);
+            // Asegúrate de no procesar el estado si ya existe
+            return nuevoEstado.Count > 0 && !EstadoYaExiste(nuevoEstado) ? Closure(nuevoEstado) : new HashSet<ItemLR1>();
         }
 
-        private void AgregarTransicion(int estado, string simbolo, HashSet<ItemLR1> nuevoEstado)
+
+
+
+        // Agregar transición si no existe
+        private void AgregarTransicion(int estadoOrigen, string simbolo, int estadoDestino)
         {
-            if (nuevoEstado.Count == 0) return;
-
-            int indiceNuevoEstado = estados.IndexOf(nuevoEstado);
-
-            if (!tablaAccion.ContainsKey(estado))
+            if (!tablaTransiciones.ContainsKey(estadoOrigen))
             {
-                tablaAccion[estado] = new Dictionary<string, Transicion>();
+                tablaTransiciones[estadoOrigen] = new Dictionary<string, int>();
             }
 
-            tablaAccion[estado][simbolo] = new Transicion
+            // Evitar duplicar la misma transición
+            if (!tablaTransiciones[estadoOrigen].ContainsKey(simbolo))
             {
-                Simbolo = "SHIFT",
-                EstadoInicial = estado,
-                EstadoTransicionado = indiceNuevoEstado
-            };
+                tablaTransiciones[estadoOrigen][simbolo] = estadoDestino;
+                //Console.WriteLine($"Transición generada: Estado {estadoOrigen} -> {simbolo} -> Estado {estadoDestino}");
+            }
+            else
+            {
+                //Console.WriteLine($"Transición existente: Estado {estadoOrigen} -> {simbolo} -> Estado {tablaTransiciones[estadoOrigen][simbolo]}");
+            }
         }
+
+
+
+        private bool esTerminal(string simbolo)
+        {
+            // Define si el símbolo es terminal; esto depende de tu gramática.
+            // Supón que los terminales no están entre "<" y ">"
+            return !(simbolo.StartsWith("<") && simbolo.EndsWith(">"));
+        }
+
+
 
         private HashSet<string> ObtenerSimbolos(HashSet<ItemLR1> estado)
         {
@@ -290,5 +428,6 @@ namespace Compis_T3_1040121
         public string Simbolo { get; set; }  // "SHIFT", "REDUCE", "ACCEPT"
         public int EstadoInicial { get; set; }
         public int EstadoTransicionado { get; set; }
+        public string Produccion { get; set; }  // Nueva propiedad para las reducciones
     }
 }

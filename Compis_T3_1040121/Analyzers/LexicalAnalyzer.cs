@@ -21,9 +21,15 @@ namespace Compis_T3_1040121.Analyzers
         @"|(;)*",
         RegexOptions.Compiled
         );
+        private static readonly Regex regexInput = new Regex(@"^(\s*VAR\s*[_a-zA-Z][_a-zA-Z0-9]*\s*:\s*(REAL|STRING|BOOLEAN|INTEGER)\s*;\s*)+$");
+
         public static List<Lexema> GetLexicalTokens(string input)
         {
             var tokens = new List<Lexema>();
+            if (!validarFormatoEntrada(input))
+            {
+                return tokens;
+            }
             var matches = TOKEN_PATTERN.Matches(input);
 
             foreach (Match match in matches)
@@ -42,6 +48,10 @@ namespace Compis_T3_1040121.Analyzers
 
             tokens.Add(new Lexema("$", "eof"));  // Token EOF
             return tokens;
+        }
+        private static bool validarFormatoEntrada(string input)
+        {
+            return regexInput.IsMatch(input);
         }
     }
     public class Lexema
