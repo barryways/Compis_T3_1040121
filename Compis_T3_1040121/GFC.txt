@@ -1,0 +1,6 @@
+﻿<var_declaration> = 'VAR' identifier ':' <type> ';' <var_declaration>
+<var_declaration> = ε
+<type> = 'INTEGER'
+<type> = 'REAL'
+<type> = 'BOOLEAN'
+<type> = 'STRING'
