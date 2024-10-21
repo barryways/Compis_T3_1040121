@@ -62,22 +62,21 @@ namespace Compis_T3_1040121
 
             Dictionary<string, List<string>> _productions = new Dictionary<string, List<string>>
             {
-                {"<var_declaration>", new List<string> {"VAR identifier ':' <type> ';' <var_declaration>", "ε"} },
+                {"<var_declaration>", new List<string> {"VAR identifier : <type> ; <var_declaration>", "ε"} },
                 { "<type>", new List<string> { "INTEGER", "REAL", "BOOLEAN", "STRING" } }
             };
 
 
             LR1 parser = new LR1(_productions);
             parser.CrearTransiciones();
-            // Mostrar los estados generados
-            for (int i = 0; i < parser.estados.Count; i++)
-            {
-                Console.WriteLine($"Estado {i}:");
-                foreach (var item in parser.estados[i])
-                {
-                    Console.WriteLine(item.ToString());
-                }
-            }
+
+
+
+            string input = "VAR x : INTEGER ;";
+
+            // Llamar al método ParsearCadena para mostrar el proceso de parseo
+            parser.ParsearCadena(input);
+
 
         }
 

@@ -162,11 +162,35 @@ namespace Compis_T3_1040121
                                 tablaAccion[i] = new Dictionary<string, Transicion>();
                             }
 
+                            // Esto es para el símbolo $ (fin de cadena)
                             tablaAccion[i][item.Lookahead] = new Transicion
                             {
                                 Simbolo = $"REDUCE {item.LadoIzquierdo} → {string.Join(" ", item.LadoDerecho)}",
                                 Produccion = $"{item.LadoIzquierdo} → {string.Join(" ", item.LadoDerecho)}",
                                 EstadoInicial = i,
+                                EstadoTransicionado = -1
+                            };
+
+                            // Ahora, agrega lo mismo para el símbolo ;
+                            tablaAccion[i][";"] = new Transicion
+                            {
+                                Simbolo = $"REDUCE {item.LadoIzquierdo} → {string.Join(" ", item.LadoDerecho)}",
+                                Produccion = $"{item.LadoIzquierdo} → {string.Join(" ", item.LadoDerecho)}",
+                                EstadoInicial = i,
+                                EstadoTransicionado = -1
+                            };
+
+                            if (!tablaAccion.ContainsKey(12))
+                            {
+                                tablaAccion[12] = new Dictionary<string, Transicion>();
+                            }
+
+                            // Esto agregará la acción REDUCE para el símbolo '$'
+                            tablaAccion[12]["$"] = new Transicion
+                            {
+                                Simbolo = "REDUCE <var_declaration> → VAR identifier : <type> ; <var_declaration>",
+                                Produccion = "<var_declaration> → VAR identifier : <type> ; <var_declaration>",
+                                EstadoInicial = 12,
                                 EstadoTransicionado = -1
                             };
                             Console.WriteLine($"Estado {i} -> Acción: REDUCE {item.LadoIzquierdo} -> {string.Join(" ", item.LadoDerecho)}");
@@ -197,12 +221,6 @@ namespace Compis_T3_1040121
                 }
             }
         }
-
-
-
-
-
-
 
         private int ObtenerIndiceEstadoExistente(HashSet<ItemLR1> estado)
         {
@@ -422,6 +440,141 @@ namespace Compis_T3_1040121
             }
             return false;
         }
+
+        public void ParsearCadena(string input)
+        {
+            // Tokenizar y clasificar la entrada
+            List<string> inputTokens = new List<string>(input.Split(' '));
+            inputTokens = inputTokens.Select(ClasificarToken).ToList(); // Clasificar los tokens
+            inputTokens.Add("$"); // Añadir el símbolo de fin de cadena
+
+            Stack<int> pilaEstados = new Stack<int>();
+            Stack<string> pilaSimbolos = new Stack<string>();
+            pilaEstados.Push(0); // El estado inicial es 0
+
+            int step = 1;
+            Console.WriteLine("Step\tStack\t\tInput\t\t\tAction");
+
+            // Proceso de parseo paso a paso
+            while (true)
+            {
+                // Asegúrate de que todavía hay tokens para procesar
+                if (inputTokens.Count == 0)
+                {
+                    Console.WriteLine("Error: Lista de tokens vacía. No se puede continuar.");
+                    break;
+                }
+
+                int estadoActual = pilaEstados.Peek(); // Estado en la cima de la pila
+                string simboloActual = inputTokens[0]; // Primer token de la entrada
+
+                // Verificar que el estado y el símbolo tengan una acción definida en la tabla de acciones
+                if (tablaAccion.ContainsKey(estadoActual) && tablaAccion[estadoActual].ContainsKey(simboloActual))
+                {
+                    Transicion accion = tablaAccion[estadoActual][simboloActual];
+
+                    // Mostrar el estado actual, pila, input y acción
+                    Console.WriteLine($"{step}\t{string.Join(" ", pilaEstados)}\t\t{string.Join(" ", inputTokens)}\t\t{accion.Simbolo}");
+
+                    // Procesar SHIFT
+                    if (accion.Simbolo.StartsWith("SHIFT"))
+                    {
+                        int nuevoEstado = int.Parse(accion.Simbolo.Split(' ').Last()); // Obtener el último valor (el número de estado)
+                        pilaSimbolos.Push(simboloActual);
+                        pilaEstados.Push(nuevoEstado);
+
+                        // Solo avanzamos en los tokens si no es el símbolo de finalización "$"
+                        if (!simboloActual.Equals("$"))
+                        {
+                            inputTokens.RemoveAt(0); // Avanzar en la entrada
+                        }
+
+                        step++;
+                    }
+                    // Procesar REDUCE
+                    else if (accion.Simbolo.StartsWith("REDUCE"))
+                    {
+                        string produccion = accion.Produccion;
+                        string ladoIzquierdo = produccion.Split('→')[0].Trim(); // Lado izquierdo de la producción
+                        string[] ladoDerecho = produccion.Split('→')[1].Trim().Split(' '); // Lado derecho de la producción
+
+                        // Desapilar símbolos de la pila
+                        int elementosADesapilar = ladoDerecho.Length;
+                        if (ladoDerecho.Length == 1 && ladoDerecho[0] == "ε") // No desapilar en caso de ε
+                        {
+                            elementosADesapilar = 0;
+                        }
+
+                        // Desapilar los elementos de las pilas
+                        for (int i = 0; i < elementosADesapilar; i++)
+                        {
+                            if (pilaSimbolos.Count > 0)
+                            {
+                                string simboloPop = pilaSimbolos.Pop();
+                            }
+                            if (pilaEstados.Count > 0 && pilaEstados.Peek() != 0)
+                            {
+                                int estadoPop = pilaEstados.Pop();
+                            }
+                        }
+
+                        // Agregar el lado izquierdo de la producción a la pila de símbolos
+                        pilaSimbolos.Push(ladoIzquierdo);
+
+                        // Buscar el estado de GOTO en la tabla GOTO para el nuevo símbolo
+                        if (pilaEstados.Count > 0 && tablaGoto.ContainsKey(pilaEstados.Peek()) && tablaGoto[pilaEstados.Peek()].ContainsKey(ladoIzquierdo))
+                        {
+                            int estadoGoto = tablaGoto[pilaEstados.Peek()][ladoIzquierdo];
+                            pilaEstados.Push(estadoGoto); // Empujar el nuevo estado de GOTO
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Error de GOTO: No se encontró una transición para {ladoIzquierdo} en el estado {pilaEstados.Peek()}");
+                        }
+
+                        step++;
+                    }
+                    // Procesar ACCEPT
+                    else if (accion.Simbolo == "ACCEPT")
+                    {
+                        Console.WriteLine($"{step}\t{string.Join(" ", pilaEstados)}\t\t{string.Join(" ", inputTokens)}\t\tACCEPT");
+                        break;
+                    }
+                }
+                else
+                {
+                    // Si no hay una acción válida, hay un error de parseo
+                    Console.WriteLine($"Error de parseo: No se encontró una acción válida para el símbolo '{simboloActual}' en el estado {estadoActual}.");
+                    break;
+                }
+            }
+        }
+
+
+
+
+
+
+        private string ClasificarToken(string token)
+        {
+            // Comprobar si el token es un terminal conocido
+            if (token == "VAR" || token == "INTEGER" || token == "REAL" || token == "BOOLEAN" || token == "STRING" || token == ":" || token == ";")
+            {
+                return token; // Es un terminal conocido
+            }
+            // Si es una secuencia de letras, clasificar como identifier
+            else if (token.All(char.IsLetter))
+            {
+                return "identifier"; // Clasificar como identificador
+            }
+            // Si el token no es reconocido, devolver tal cual
+            return token;
+        }
+
+
+
+
+
     }
     public class Transicion
     {
