@@ -156,6 +156,25 @@ namespace Compis_T3_1040121
                         }
                         else
                         {
+                            // Modificar el estado 12 para agregar la reducción en el símbolo "VAR"
+                            if (item.LadoIzquierdo == "<var_declaration>" && item.Lookahead == "VAR")
+                            {
+                                if (!tablaAccion.ContainsKey(i))
+                                {
+                                    tablaAccion[i] = new Dictionary<string, Transicion>();
+                                }
+
+                                // Reducción de la producción recursiva de <var_declaration>
+                                tablaAccion[i]["VAR"] = new Transicion
+                                {
+                                    Simbolo = $"REDUCE {item.LadoIzquierdo} → {string.Join(" ", item.LadoDerecho)}",
+                                    Produccion = $"{item.LadoIzquierdo} → {string.Join(" ", item.LadoDerecho)}",
+                                    EstadoInicial = i,
+                                    EstadoTransicionado = -1
+                                };
+
+                                Console.WriteLine($"Estado {i} -> Acción: REDUCE {item.LadoIzquierdo} → {string.Join(" ", item.LadoDerecho)}");
+                            }
                             // Realizamos la reducción si no es el símbolo inicial
                             if (!tablaAccion.ContainsKey(i))
                             {
@@ -195,6 +214,7 @@ namespace Compis_T3_1040121
                             };
                             Console.WriteLine($"Estado {i} -> Acción: REDUCE {item.LadoIzquierdo} -> {string.Join(" ", item.LadoDerecho)}");
                         }
+                        
                     }
                 }
             }
@@ -453,7 +473,7 @@ namespace Compis_T3_1040121
             pilaEstados.Push(0); // El estado inicial es 0
 
             int step = 1;
-            Console.WriteLine("Step\tStack\t\tInput\t\t\tAction");
+            Console.WriteLine("Step\tStack\t\t\t\tInput\t\t\t\t\t\tAction");
 
             // Proceso de parseo paso a paso
             while (true)
@@ -474,7 +494,7 @@ namespace Compis_T3_1040121
                     Transicion accion = tablaAccion[estadoActual][simboloActual];
 
                     // Mostrar el estado actual, pila, input y acción
-                    Console.WriteLine($"{step}\t{string.Join(" ", pilaEstados)}\t\t{string.Join(" ", inputTokens)}\t\t{accion.Simbolo}");
+                    Console.WriteLine($"{step}\t{string.Join(" ", pilaEstados)}\t\t\t\t{string.Join(" ", inputTokens)}\t\t{accion.Simbolo}");
 
                     // Procesar SHIFT
                     if (accion.Simbolo.StartsWith("SHIFT"))
@@ -537,7 +557,7 @@ namespace Compis_T3_1040121
                     // Procesar ACCEPT
                     else if (accion.Simbolo == "ACCEPT")
                     {
-                        Console.WriteLine($"{step}\t{string.Join(" ", pilaEstados)}\t\t{string.Join(" ", inputTokens)}\t\tACCEPT");
+                        Console.WriteLine($"{step}\t{string.Join(" ", pilaEstados)}\t\t\t\t{string.Join(" ", inputTokens)}\t\tACCEPT");
                         break;
                     }
                 }
@@ -571,7 +591,60 @@ namespace Compis_T3_1040121
             return token;
         }
 
+        public void ConvertirAJava(string input)
+        {
+            // Vamos a usar este diccionario para mapear los tipos Pascal a los de Java
+            Dictionary<string, string> mapPascalToJava = new Dictionary<string, string>
+        {
+            { "INTEGER", "int" },
+            { "REAL", "float" },
+            { "BOOLEAN", "boolean" },
+            { "STRING", "String" }
+        };
 
+            // Tokenizamos la cadena de entrada
+            List<string> tokens = new List<string>(input.Split(' '));
+
+            // Variables que usaremos para generar el código Java
+            string currentType = "";  // Para almacenar el tipo de la variable actual
+            List<string> javaCode = new List<string>();  // Aquí acumularemos las líneas de código en Java
+
+            // Vamos a recorrer los tokens
+            for (int i = 0; i < tokens.Count; i++)
+            {
+                string token = tokens[i];
+
+                // Si encontramos el token 'VAR', empezamos a analizar la declaración
+                if (token == "VAR")
+                {
+                    string variableName = tokens[i + 1]; // El siguiente token será el identificador (variable)
+                    string colon = tokens[i + 2];  // Esto debería ser el ':'
+                    string pascalType = tokens[i + 3]; // El tipo en Pascal (INTEGER, REAL, BOOLEAN, STRING)
+                    string semicolon = tokens[i + 4];  // Esto debería ser el ';'
+
+                    // Si es un tipo válido en Pascal, lo convertimos al tipo en Java
+                    if (mapPascalToJava.ContainsKey(pascalType))
+                    {
+                        currentType = mapPascalToJava[pascalType];
+                        javaCode.Add($"{currentType} {variableName};");  // Generamos la línea en Java
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Error: El tipo '{pascalType}' no es válido.");
+                    }
+
+                    // Saltamos al siguiente punto (se asume que las declaraciones están bien formadas)
+                    i += 4; // Nos saltamos los tokens ya procesados (identifier, :, type, ;)
+                }
+            }
+
+            // Imprimir el código Java generado
+            Console.WriteLine("Código generado en Java:");
+            foreach (string line in javaCode)
+            {
+                Console.WriteLine(line);
+            }
+        }
 
 
 

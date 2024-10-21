@@ -70,14 +70,46 @@ namespace Compis_T3_1040121
             LR1 parser = new LR1(_productions);
             parser.CrearTransiciones();
 
+            Console.WriteLine("-------------------------------------------------------------------------------");
+            //Ejemplo 1 - entrada:
+            string prueba1 = "VAR esPar : BOOLEAN ;";
+            parser.ConvertirAJava(prueba1);
+            parser.ParsearCadena(tokenizarCadena(prueba1));
+            Console.WriteLine("-------------------------------------------------------------------------------");
+            //Ejemplo 2 - entrada:
+            string prueba2 = "VAR prueba1 : REAL ; VAR prueba2 : INTEGER ;";
+            parser.ConvertirAJava(prueba2);
+            parser.ParsearCadena(tokenizarCadena(prueba2));
+            Console.WriteLine("-------------------------------------------------------------------------------");
+            //Ejemplo 3 - entrada:
+            string prueba3 = "VAR test : BOOL ;";
+            parser.ConvertirAJava(prueba3);
+            parser.ParsearCadena(tokenizarCadena(prueba3));
+            Console.WriteLine("-------------------------------------------------------------------------------");
+            //Ejemplo 4 - entrada:
+            
+            string prueba4 = "VAR test : BOOLEAN ; VAR test : INTEGER ;";
+            parser.ConvertirAJava(prueba4);
+            parser.ParsearCadena(tokenizarCadena(prueba4));
 
+        }
 
-            string input = "VAR x : INTEGER ;";
-
-            // Llamar al método ParsearCadena para mostrar el proceso de parseo
-            parser.ParsearCadena(input);
-
-
+        static string tokenizarCadena(string cadena)
+        {
+            string cadenaNueva = "";
+            tokens = LexicalAnalyzer.GetLexicalTokens(cadena);
+            if (tokens.Count() == 0)
+            {
+                Console.WriteLine("La entrada no tiene el formato correcto");
+            }
+            else
+            {
+                foreach (var token in tokens)
+                {
+                    cadenaNueva += token.Tipo.ToString() + " ";
+                }
+            }
+            return cadenaNueva;
         }
 
         static void LeerArchivo(string rutaArchivo)
